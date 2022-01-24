@@ -1,4 +1,4 @@
-#msavini v0.3
+#msavini v0.5
 
 # Check for if user is admin
 if (!([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")){
@@ -8,207 +8,353 @@ if (!([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]
 	}	
 #
 
-##################
-# links checking #
-##################
+Write-Host "Requirements install v0.5" -ForegroundColor Green
+Start-Sleep 4
 
-Write-Host "Checking if links are working..." -ForegroundColor Green
+# Defining Functions
 
-$7zipurl = 'https://7-zip.org/' + (Invoke-WebRequest -UseBasicParsing -Uri 'https://7-zip.org/' | Select-Object -ExpandProperty Links | Where-Object {($_.outerHTML -match 'Download')-and ($_.href -like "a/*") -and ($_.href -like "*-x64.exe")} | Select-Object -First 1 | Select-Object -ExpandProperty href) 
+function alreadyInstalled {
 
-$linksArray = @(
-    'http://dl.google.com/chrome/install/375.126/chrome_installer.exe',
-    $7zipurl,
-    "https://sourceforge.net/projects/winscp/files/WinSCP/5.19.5/WinSCP-5.19.5-Setup.exe",
-    "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.2/npp.8.2.Installer.x64.exe"
-    )
+    $programlist = get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* | Select-Object Displayname
 
-foreach ($i in $linksArray) {
+    foreach ($i in $programlist) {
+        
+        $currentLine = $i.Displayname
 
-    # invoking web request
-    $HTTP_Request = [System.Net.WebRequest]::Create($i)
+        if ($currentLine -like "*7-Zip*") {
 
-    # We then get a response from the site.
-    $HTTP_Response = $HTTP_Request.GetResponse()
+            $global:install7Zip = $false
 
-    # We then get the HTTP code as an integer.
-    $HTTP_Status = [int]$HTTP_Response.StatusCode
+        }
 
-    If ($HTTP_Status -ne 200) {
-        Write-Host $i
-        Write-Host "May be down, please check the link!" -ForegroundColor Red
-        exit
+        if ($currentLine -like "*Notepad++*") {
+
+            $global:installnotepad = $false
+
+        }
+
+    }
+
+    $programlist2 = get-ItemProperty HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* | Select-Object DisplayName
+
+    foreach ($i in $programlist2) {
+        
+        $currentLine = $i.Displayname
+
+        if ($currentLine -like "*Google Chrome") {
+
+            $global:installchrome = $false
+
+        }
+
+        if ($currentLine -like "*WinSCP*") {
+
+            $global:installWinSCP = $false
+
+        }
+
+    }
+
+    if ($(test-path "C:\Users\$env:UserName\Desktop\Baretail.exe") -eq $true) {
+
+        $global:BTInstall = $false
+
     }
 
 }
 
-Write-Host "All links are OK! Proceeding..." -ForegroundColor Green
-Start-Sleep 2
-Clear-Host
+function LinksCheck {
 
-###############
+    $7zipurl = 'https://7-zip.org/' + (Invoke-WebRequest -UseBasicParsing -Uri 'https://7-zip.org/' | Select-Object -ExpandProperty Links | Where-Object {($_.outerHTML -match 'Download')-and ($_.href -like "a/*") -and ($_.href -like "*-x64.exe")} | Select-Object -First 1 | Select-Object -ExpandProperty href) 
 
-Write-Host "Installing requirements: Chrome, 7zip, WinSCP, Notepad++"
-Write-Host
-
-##################
-# Chrome Install #
-##################
-Write-Host "Installing Google Chrome..." -ForegroundColor Green
-Start-Sleep 2
-Write-Host
-
-# Actual commands in a block
-$scriptblock = {
-    $Path = $env:TEMP
-    $Installer = "chrome_installer.exe"
-    Invoke-WebRequest "http://dl.google.com/chrome/install/375.126/chrome_installer.exe" -OutFile $Path\$Installer
-    Start-Process -FilePath $Path\$Installer -Args "/silent /install" -Verb RunAs -Wait
-    Remove-Item $Path\$Installer
+    $linksArray = @(
+        'http://dl.google.com/chrome/install/375.126/chrome_installer.exe',
+        $7zipurl,
+        "https://sourceforge.net/projects/winscp/files/WinSCP/5.19.5/WinSCP-5.19.5-Setup.exe",
+        "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.2/npp.8.2.Installer.x64.exe"
+        )
+    
+    foreach ($i in $linksArray) {
+    
+        # invoking web request
+        $HTTP_Request = [System.Net.WebRequest]::Create($i)
+    
+        # We then get a response from the site.
+        $HTTP_Response = $HTTP_Request.GetResponse()
+    
+        # We then get the HTTP code as an integer.
+        $HTTP_Status = [int]$HTTP_Response.StatusCode
+    
+        If ($HTTP_Status -ne 200) {
+            Write-Host $i
+            Write-Host "May be down, please check the link!" -ForegroundColor Red
+            exit
+        }
+    
+    }
+    
+    Write-Host "All links are OK! Proceeding..." -ForegroundColor Green
+    Start-Sleep 2
+    clear-host
 }
 
-# Starting the job to later use a progress bar
-Start-Job -name ChromeInstall -ScriptBlock $scriptblock | Out-Null
+function ChromeInstall {
 
-$job = Get-Job -name ChromeInstall
-
-# while job status is not "Completed". write progres...
-while( $job.State -ne "Completed") {
-
-	Write-Progress -Activity "Installing Chrome..." -Status "Requirements 1/4"
-	Start-Sleep -m 300	
-}
-
-if ( $job.State -eq "Completed" ) {
+    Write-Host "Installing Google Chrome..." -ForegroundColor Green
+    Start-Sleep 2
+    Write-Host
+    
+    # Actual commands in a block
+    $scriptblock = {
+        $Path = $env:TEMP
+        $Installer = "chrome_installer.exe"
+        Invoke-WebRequest "http://dl.google.com/chrome/install/375.126/chrome_installer.exe" -OutFile $Path\$Installer
+        Start-Process -FilePath $Path\$Installer -Args "/silent /install" -Verb RunAs -Wait
+        Remove-Item $Path\$Installer
+    }
+    
+    # Starting the job to later use a progress bar
+    Start-Job -name ChromeInstall -ScriptBlock $scriptblock | Out-Null
+    
+    $job = Get-Job -name ChromeInstall
+    
+    # while job status is not "Completed". write progres...
+    while( $job.State -ne "Completed") {
+    
+        Write-Progress -Activity "Installing Chrome..." -Status "Requirements 1/5"
+        Start-Sleep -m 300	
+    }
+    
+    if ( $job.State -eq "Completed" ) {
+        Clear-Host
+        Write-Host "Chrome Installation complete!" -ForegroundColor Green
+        Start-Sleep 3
+    
+    }
+    
+    #Screen Cleaning
+    Write-Host
+    Write-Host
     Clear-Host
-    Write-Host "Chrome Installation complete!" -ForegroundColor Green
-    Start-Sleep 3
 
 }
 
-#Screen Cleaning
-Write-Host
-Write-Host
-Clear-Host
+function 7zipInstall {
 
-##################
-# 7zip Install   #
-##################
+    Write-Host "Installing 7zip..." -ForegroundColor Green
+    Start-Sleep 2
+    Write-Host
 
-Write-Host "Installing 7zip..." -ForegroundColor Green
-Start-Sleep 2
-Write-Host
+    $scriptblock = {
+    $dlurl = 'https://7-zip.org/' + (Invoke-WebRequest -UseBasicParsing -Uri 'https://7-zip.org/' | Select-Object -ExpandProperty Links | Where-Object {($_.outerHTML -match 'Download')-and ($_.href -like "a/*") -and ($_.href -like "*-x64.exe")} | Select-Object -First 1 | Select-Object -ExpandProperty href)
+    $installerPath = Join-Path $env:TEMP (Split-Path $dlurl -Leaf)
+    Invoke-WebRequest $dlurl -OutFile $installerPath
+    Start-Process -FilePath $installerPath -Args "/S" -Verb RunAs -Wait
+    Remove-Item $installerPath
+    }
 
-$scriptblock = {
-$dlurl = 'https://7-zip.org/' + (Invoke-WebRequest -UseBasicParsing -Uri 'https://7-zip.org/' | Select-Object -ExpandProperty Links | Where-Object {($_.outerHTML -match 'Download')-and ($_.href -like "a/*") -and ($_.href -like "*-x64.exe")} | Select-Object -First 1 | Select-Object -ExpandProperty href)
-$installerPath = Join-Path $env:TEMP (Split-Path $dlurl -Leaf)
-Invoke-WebRequest $dlurl -OutFile $installerPath
-Start-Process -FilePath $installerPath -Args "/S" -Verb RunAs -Wait
-Remove-Item $installerPath
-}
+    Start-Job -name SevenZipInstall -ScriptBlock $scriptblock | Out-Null
 
-Start-Job -name SevenZipInstall -ScriptBlock $scriptblock | Out-Null
+    $job = Get-Job -name SevenZipInstall
 
-$job = Get-Job -name SevenZipInstall
+    while( $job.State -ne "Completed") {
 
-while( $job.State -ne "Completed") {
+        Write-Progress -Activity "Installing 7zip..." -Status "Requirements 2/5"
+        Start-Sleep -m 300	
+    }
 
-	Write-Progress -Activity "Installing 7zip..." -Status "Requirements 2/4"
-	Start-Sleep -m 300	
-}
+    if ( $job.State -eq "Completed" ) {
+        Clear-Host
+        Write-Host "7zip Installation complete!" -ForegroundColor Green
+        Start-Sleep 3
 
-if ( $job.State -eq "Completed" ) {
+    }
+
+    #Screen Cleaning
+    Write-Host
+    Write-Host
     Clear-Host
-    Write-Host "7zip Installation complete!" -ForegroundColor Green
-    Start-Sleep 3
-
+    
 }
 
-#Screen Cleaning
-Write-Host
-Write-Host
-Clear-Host
+function WinSCPinstall {
 
-##################
-# WinSCP Install #
-##################
+    Write-Host "Installing WinSCP..." -ForegroundColor Green
+    Start-Sleep 2
+    Write-Host
 
-Write-Host "Installing WinSCP..." -ForegroundColor Green
-Start-Sleep 2
-Write-Host
+    $scriptblock = {
+        $Path = $env:TEMP
+        $Installer = "WinSCP.exe"
+        $url = "https://sourceforge.net/projects/winscp/files/WinSCP/5.19.5/WinSCP-5.19.5-Setup.exe"
+        Invoke-WebRequest -Uri $url -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::FireFox -OutFile $Path\$Installer
+        Start-Process -FilePath $Path\$Installer -Args "/VERYSILENT /ALLUSERS" -Verb RunAs -Wait
+        Remove-Item $Path\$Installer
+    }
 
-$scriptblock = {
-    $Path = $env:TEMP
-    $Installer = "WinSCP.exe"
-    $url = "https://sourceforge.net/projects/winscp/files/WinSCP/5.19.5/WinSCP-5.19.5-Setup.exe"
-    Invoke-WebRequest -Uri $url -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::FireFox -OutFile $Path\$Installer
-    Start-Process -FilePath $Path\$Installer -Args "/VERYSILENT /ALLUSERS" -Verb RunAs -Wait
-    Remove-Item $Path\$Installer
-}
+    Start-Job -name winscpInstall -ScriptBlock $scriptblock | Out-Null
 
-Start-Job -name ChromeInstall -ScriptBlock $scriptblock | Out-Null
+    $job = Get-Job -name winscpInstall
 
-$job = Get-Job -name ChromeInstall
+    while( $job.State -ne "Completed") {
 
-while( $job.State -ne "Completed") {
+        Write-Progress -Activity "Installing WinSCP..." -Status "Requirements 3/5"
+        Start-Sleep -m 300	
+    }
 
-	Write-Progress -Activity "Installing WinSCP..." -Status "Requirements 3/4"
-	Start-Sleep -m 300	
-}
+    if ( $job.State -eq "Completed" ) {
+        Clear-Host
+        Write-Host "WinSCP Installation complete!" -ForegroundColor Green
+        Start-Sleep 3
 
-if ( $job.State -eq "Completed" ) {
+    }
+
+    Write-Host
+    Write-Host
     Clear-Host
-    Write-Host "WinSCP Installation complete!" -ForegroundColor Green
-    Start-Sleep 3
 
 }
 
-Write-Host
-Write-Host
-Clear-Host
+function notepadInstall {
 
-#####################
-# Notepad++ Install #
-#####################
+    Write-Host "Installing Notepad++..." -ForegroundColor Green
+    Start-Sleep 2
+    Write-Host
 
-Write-Host "Installing Notepad++..." -ForegroundColor Green
-Start-Sleep 2
-Write-Host
+    $scriptblock = {
+        $Path = $env:TEMP
+        $Installer = "notepad.exe"
+        Invoke-WebRequest "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.2/npp.8.2.Installer.x64.exe" -OutFile $Path\$Installer
+        Start-Process -FilePath $Path\$Installer -Args "/S" -Verb RunAs -Wait
+        Remove-Item $Path\$Installer
+    }
 
-$scriptblock = {
-    $Path = $env:TEMP
-    $Installer = "notepad.exe"
-    Invoke-WebRequest "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.2/npp.8.2.Installer.x64.exe" -OutFile $Path\$Installer
-    Start-Process -FilePath $Path\$Installer -Args "/S" -Verb RunAs -Wait
-    Remove-Item $Path\$Installer
+    Start-Job -name notepadInstall -ScriptBlock $scriptblock | Out-Null
+
+    $job = Get-Job -name notepadInstall
+
+    while( $job.State -ne "Completed") {
+
+        Write-Progress -Activity "Installing Notepad++..." -Status "Requirements 4/5"
+        Start-Sleep -m 300	
+    }
+
+    if ( $job.State -eq "Completed" ) {
+        Clear-Host
+        Write-Host "Notepad++ Installation complete!" -ForegroundColor Green
+        Start-Sleep 3    
+	}
 }
 
-Start-Job -name ChromeInstall -ScriptBlock $scriptblock | Out-Null
+function baretailInstall {
 
-$job = Get-Job -name ChromeInstall
+    Write-Host "Installing Baretail..." -ForegroundColor Green
+    Start-Sleep 2
+    Write-Host
 
-while( $job.State -ne "Completed") {
+    $scriptblock = {
+        $Path = $env:TEMP
+        $Installer = "baretail.exe"
+        $url = "https://www.baremetalsoft.com/baretail/download.php?p=m"
+        Invoke-WebRequest -Uri $url -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::FireFox -OutFile $Path\$Installer
+        Move-Item -Path "$env:TEMP\baretail.exe" -Destination "C:\Users\$env:UserName\Desktop\Baretail.exe"
+        Start-Sleep 3
+    }
 
-	Write-Progress -Activity "Installing Notepad++..." -Status "Requirements 4/4"
-	Start-Sleep -m 300	
-}
+    Start-Job -name baretailInstall -ScriptBlock $scriptblock | Out-Null
 
-if ( $job.State -eq "Completed" ) {
+    $job = Get-Job -name baretailInstall
+
+    while( $job.State -ne "Completed") {
+
+        Write-Progress -Activity "Copying BareTail..." -Status "Requirements 5/5"
+        Start-Sleep -m 300	
+    }
+
+    if ( $job.State -eq "Completed" ) {
+        Clear-Host
+        Write-Host "BareTail Installation complete!" -ForegroundColor Green
+        Start-Sleep 3
+
+    }
+
+    Write-Host
+    Write-Host
     Clear-Host
-    Write-Host "Notepad++ Installation complete!" -ForegroundColor Green
-    Start-Sleep 3
+
+}
+
+Write-Host "Installing requirements: Chrome, 7zip, WinSCP, Notepad++, BareTail"
+Write-Host
+
+# Checking if links are working
+Write-Host "Checking if links are working..." -ForegroundColor Green
+LinksCheck
+
+# Checking if programs are already installed
+alreadyInstalled
+
+# Installing Chrome if is not already installed
+if ($installchrome -eq $false) {
+
+    Write-Host "Chrome already installed. Skipping..."
+    Start-Sleep 2
+
+} else {
+
+    ChromeInstall
+
+}
+
+# Installing 7zip if is not already installed
+if ($install7Zip -eq $false) {
+
+    Write-Host "7zip already installed. Skipping..."
+    Start-Sleep 2
+
+} else {
+
+    7zipInstall
+
+}
+
+# Installing WinSCP if is not already installed
+if ($installWinSCP -eq $false) {
+
+    Write-Host "WinSCP already installed. Skipping..."
+    Start-Sleep 2
+
+} else {
+
+     WinSCPinstall
+
+}
+
+# Installing Notepad++ if is not already installed
+if ($installnotepad -eq $false) {
+
+    Write-Host "Notepad++ already installed. Skipping..."
+    Start-Sleep 2
+
+} else {
+
+    notepadInstall
+
+}
+
+# Installing Baretail if is not already installed
+if ($BTInstall -eq $false) {
+
+    Write-Host "Baretail already installed. Skipping..."
+    Start-Sleep 2
+
+} else {
+
+    baretailInstall
 
 }
 
 Write-Host
 Write-Host
-Write-Host
-Write-Host
-Write-Host
-Write-Host
-Write-Host
-Write-Host
-Clear-Host
-Clear-Host
 Clear-Host
 Write-Host "All the standard requirements are installed!" -ForegroundColor Green -BackgroundColor Blue
